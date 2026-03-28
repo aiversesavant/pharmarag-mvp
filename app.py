@@ -134,4 +134,4 @@ with gr.Blocks(title="PharmaRAG MVP") as demo:
         outputs=[answer_summary, primary_citation, supporting_sources, raw_results],
     )
 
-demo.launch(share=False, inbrowser=True)
+demo.launch()

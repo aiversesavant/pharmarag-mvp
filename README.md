@@ -1,35 +1,34 @@
+---
+title: PharmaRAG MVP
+emoji: 💊
+colorFrom: blue
+colorTo: indigo
+sdk: streamlit
+sdk_version: "1.32.0"
+app_file: app.py
+pinned: false
+---
+
 # PharmaRAG MVP
 
 PharmaRAG MVP is a low-cost AI-powered Retrieval-Augmented Generation (RAG) application for pharmaceutical and regulatory documents.
 
-It allows users to:
-- ingest pharma/regulatory PDFs
-- perform semantic retrieval over document content
-- ask natural-language questions
-- receive grounded answers with citations and supporting excerpts
-
 ## Features
-
-- PDF ingestion from `sample_docs/`
-- sentence-based chunking
-- sentence-transformer embeddings
-- ChromaDB vector storage
-- hybrid retrieval and reranking
-- Gradio UI
-- citation-backed responses
+- Upload pharma/regulatory PDFs
+- Ingest document content
+- Perform semantic retrieval
+- Ask natural-language questions
+- Receive grounded answers with citations and supporting excerpts
 
 ## Tech Stack
-
 - Python
-- Gradio
+- Streamlit
 - PyPDF
 - Sentence Transformers
 - ChromaDB
 
-## Run Locally
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-python app.py
+## How to Use
+1. Load bundled sample docs or upload your own PDFs
+2. Click **Ingest Documents**
+3. Ask a question
+4. Review the answer, citation, and excerpts

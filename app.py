@@ -1,6 +1,5 @@
 import os
 import shutil
-from pathlib import Path
 
 import streamlit as st
 
@@ -15,12 +14,14 @@ UPLOAD_DIR = "uploaded_docs"
 
 
 def clear_upload_dir() -> None:
+    """Remove and recreate the upload directory."""
     if os.path.exists(UPLOAD_DIR):
         shutil.rmtree(UPLOAD_DIR)
     os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 def save_uploaded_files(uploaded_files) -> str:
+    """Save uploaded PDF files locally for ingestion."""
     if not uploaded_files:
         return "Please upload one or more PDF files."
 
@@ -40,10 +41,11 @@ def get_sample_docs_status() -> str:
     files = get_available_pdf_names(SAMPLE_DOCS_DIR)
     if not files:
         return "No PDF files found in sample_docs."
-    return f"Found {len(files)} PDF files in sample_docs."
+    return f"Found {len(files)} PDF file(s) in sample_docs."
 
 
-def ingest_documents(mode: str, uploaded_files):
+def ingest_documents(mode: str, uploaded_files) -> str:
+    """Ingest either bundled sample docs or uploaded PDFs."""
     if mode == "Use bundled sample_docs":
         return ingest_pdfs_from_folder(SAMPLE_DOCS_DIR)
 
@@ -55,15 +57,18 @@ def ingest_documents(mode: str, uploaded_files):
     return f"{save_status}\n\n{ingest_status}"
 
 
-st.set_page_config(page_title="PharmaRAG MVP", layout="wide")
+st.set_page_config(page_title="PharmaRAG MVP", page_icon="💊", layout="wide")
 
-st.title("PharmaRAG MVP")
+st.title("💊 PharmaRAG MVP")
 st.write(
-    "Use local bundled sample PDFs or upload your own regulatory/pharma PDFs, ingest them, and ask grounded questions."
+    "Use bundled sample PDFs or upload your own pharmaceutical/regulatory PDFs, ingest them, and ask grounded questions."
 )
 
 if "ingested" not in st.session_state:
     st.session_state.ingested = False
+
+if "ingestion_status" not in st.session_state:
+    st.session_state.ingestion_status = ""
 
 with st.expander("Step 1: Load Documents", expanded=True):
     sample_docs_status = get_sample_docs_status()
@@ -83,10 +88,13 @@ with st.expander("Step 1: Load Documents", expanded=True):
         )
 
     if st.button("Ingest Documents"):
-        status = ingest_documents(mode, uploaded_files)
-        st.text_area("Ingestion Status", value=status, height=220)
-        if "Ingestion complete." in status:
-            st.session_state.ingested = True
+        with st.spinner("Ingesting documents..."):
+            status = ingest_documents(mode, uploaded_files)
+            st.session_state.ingestion_status = status
+            st.session_state.ingested = "Ingestion complete." in status
+
+    if st.session_state.ingestion_status:
+        st.text_area("Ingestion Status", value=st.session_state.ingestion_status, height=220)
 
 with st.expander("Step 2: Ask Questions", expanded=True):
     top_k = st.slider("Number of top chunks to retrieve", 1, 10, 3)
@@ -101,11 +109,12 @@ with st.expander("Step 2: Ask Questions", expanded=True):
         if not question.strip():
             st.warning("Please enter a question.")
         else:
-            result = query_documents(
-                user_query=question,
-                top_k=top_k,
-                source_filter=None,
-            )
+            with st.spinner("Querying documents..."):
+                result = query_documents(
+                    user_query=question,
+                    top_k=top_k,
+                    source_filter=None,
+                )
 
             st.subheader("Answer Summary")
             st.write(result["summary"])

@@ -1,6 +1,6 @@
-streamlit
+streamlit==1.39.0
 pypdf==6.0.0
 chromadb==0.5.5
 sentence-transformers==3.0.1
-torch
+torch==2.5.1
 huggingface_hub==0.25.2

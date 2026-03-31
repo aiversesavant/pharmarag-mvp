@@ -1,6 +1,6 @@
+import re
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-import re
 
 import chromadb
 from pypdf import PdfReader
@@ -11,7 +11,16 @@ CHROMA_PATH = "chroma_db"
 COLLECTION_NAME = "pharmarag_docs"
 EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 
-embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+
+_embedding_model: Optional[SentenceTransformer] = None
+
+
+def get_embedding_model() -> SentenceTransformer:
+    """Lazy-load the embedding model."""
+    global _embedding_model
+    if _embedding_model is None:
+        _embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+    return _embedding_model
 
 
 def get_available_pdf_names(folder_path: str = "sample_docs") -> List[str]:
@@ -19,14 +28,13 @@ def get_available_pdf_names(folder_path: str = "sample_docs") -> List[str]:
     if not folder.exists():
         return []
 
-    pdf_files = sorted(
+    return sorted(
         [
             f.name
             for f in folder.iterdir()
             if f.is_file() and f.suffix.lower() == ".pdf" and not f.name.startswith(".")
         ]
     )
-    return pdf_files
 
 
 def extract_text_from_pdf(pdf_path: str) -> str:
@@ -130,13 +138,15 @@ def ingest_pdfs_from_folder(folder_path: str = "sample_docs") -> str:
     )
 
     if not pdf_files:
-        return "No PDF files found in sample_docs."
+        return f"No PDF files found in {folder_path}."
 
     collection = reset_collection()
 
     total_chunks = 0
     processed_files = 0
     skipped_files: List[str] = []
+
+    model = get_embedding_model()
 
     for pdf_file in pdf_files:
         print(f"Processing: {pdf_file.name}")
@@ -152,7 +162,7 @@ def ingest_pdfs_from_folder(folder_path: str = "sample_docs") -> str:
             continue
 
         try:
-            embeddings = embedding_model.encode(chunks).tolist()
+            embeddings = model.encode(chunks).tolist()
         except Exception as exc:
             skipped_files.append(f"{pdf_file.name} (embedding failed: {exc})")
             continue
@@ -526,61 +536,71 @@ def query_documents(
             "raw_results": "",
         }
 
-    collection = get_collection()
+    try:
+        collection = get_collection()
 
-    if collection.count() == 0:
-        return {
-            "summary": "No documents are ingested yet. Please ingest PDFs first.",
-            "primary_citation": "",
-            "supporting_sources": "",
-            "raw_results": "",
-        }
-
-    query_embedding = embedding_model.encode([user_query]).tolist()[0]
-
-    retrieval_k = max(top_k * 4, 12)
-
-    query_kwargs = {
-        "query_embeddings": [query_embedding],
-        "n_results": retrieval_k,
-        "include": ["documents", "metadatas", "distances"],
-    }
-
-    if source_filter:
-        query_kwargs["where"] = {"source": source_filter}
-
-    results = collection.query(**query_kwargs)
-
-    documents = results.get("documents", [[]])[0]
-    metadatas = results.get("metadatas", [[]])[0]
-    distances = results.get("distances", [[]])[0]
-
-    if not documents:
-        if source_filter:
+        if collection.count() == 0:
             return {
-                "summary": f"No relevant results found in {source_filter}. Try 'All Documents'.",
+                "summary": "No documents are ingested yet. Please ingest PDFs first.",
                 "primary_citation": "",
                 "supporting_sources": "",
                 "raw_results": "",
             }
 
+        model = get_embedding_model()
+        query_embedding = model.encode([user_query]).tolist()[0]
+
+        retrieval_k = max(top_k * 4, 12)
+
+        query_kwargs = {
+            "query_embeddings": [query_embedding],
+            "n_results": retrieval_k,
+            "include": ["documents", "metadatas", "distances"],
+        }
+
+        if source_filter:
+            query_kwargs["where"] = {"source": source_filter}
+
+        results = collection.query(**query_kwargs)
+
+        documents = results.get("documents", [[]])[0]
+        metadatas = results.get("metadatas", [[]])[0]
+        distances = results.get("distances", [[]])[0]
+
+        if not documents:
+            if source_filter:
+                return {
+                    "summary": f"No relevant results found in {source_filter}. Try all documents.",
+                    "primary_citation": "",
+                    "supporting_sources": "",
+                    "raw_results": "",
+                }
+
+            return {
+                "summary": "No relevant results found.",
+                "primary_citation": "",
+                "supporting_sources": "",
+                "raw_results": "",
+            }
+
+        reranked_documents, reranked_metadatas = rerank_retrieved_chunks(
+            documents=documents,
+            metadatas=metadatas,
+            distances=distances,
+            user_query=user_query,
+        )
+
+        return _build_summary_from_results(
+            documents=reranked_documents,
+            metadatas=reranked_metadatas,
+            user_query=user_query,
+            output_top_k=top_k,
+        )
+
+    except Exception as exc:
         return {
-            "summary": "No relevant results found.",
+            "summary": f"An error occurred while querying the documents: {exc}",
             "primary_citation": "",
             "supporting_sources": "",
             "raw_results": "",
         }
-
-    reranked_documents, reranked_metadatas = rerank_retrieved_chunks(
-        documents=documents,
-        metadatas=metadatas,
-        distances=distances,
-        user_query=user_query,
-    )
-
-    return _build_summary_from_results(
-        documents=reranked_documents,
-        metadatas=reranked_metadatas,
-        user_query=user_query,
-        output_top_k=top_k,
-    )

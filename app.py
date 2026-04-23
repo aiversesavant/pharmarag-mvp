@@ -9,8 +9,8 @@ from rag_pipeline import (
     query_documents,
 )
 
-SAMPLE_DOCS_DIR = "sample_docs"
-UPLOAD_DIR = "uploaded_docs"
+SAMPLE_DOCS_DIR = "data/input/sample_docs"
+UPLOAD_DIR = "data/uploads"
 
 
 def clear_upload_dir() -> None:

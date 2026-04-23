@@ -7,7 +7,7 @@ from pypdf import PdfReader
 from sentence_transformers import SentenceTransformer
 
 
-CHROMA_PATH = "chroma_db"
+CHROMA_PATH = "data/runtime/vector_store/chroma_db"
 COLLECTION_NAME = "pharmarag_docs"
 EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 
@@ -23,7 +23,7 @@ def get_embedding_model() -> SentenceTransformer:
     return _embedding_model
 
 
-def get_available_pdf_names(folder_path: str = "sample_docs") -> List[str]:
+def get_available_pdf_names(folder_path: str = "data/input/sample_docs") -> List[str]:
     folder = Path(folder_path)
     if not folder.exists():
         return []
@@ -123,7 +123,7 @@ def reset_collection():
     return client.get_or_create_collection(name=COLLECTION_NAME)
 
 
-def ingest_pdfs_from_folder(folder_path: str = "sample_docs") -> str:
+def ingest_pdfs_from_folder(folder_path: str = "data/input/sample_docs") -> str:
     folder = Path(folder_path)
 
     if not folder.exists():
